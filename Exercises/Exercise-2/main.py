@@ -1,6 +1,6 @@
 import pandas as pd
 import requests
-import pandas
+import pandas as pd
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
