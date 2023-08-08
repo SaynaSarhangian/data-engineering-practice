@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 url = 'https://www.ncei.noaa.gov/data/local-climatological-data/access/2021/'
 
 
-# find the file based on textinside the <a> tag.<a href="01001099999.csv">01011099999.csv</a>
+# find the file based on text inside <a href="01001099999.csv">01011099999.csv</a>
 def find_the_file():
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
@@ -32,11 +32,11 @@ def find_the_file():
 
 
 def file_download(file, row):
-    td_element = target_row.find('td')
+    td_element = row.find('td')
     a_element = td_element.find('a')
     file_url = urljoin(url, a_element['href'])
     response = requests.get(file_url)
-    with open(target_file, 'wb') as f:
+    with open(file, 'wb') as f:
         f.write(response.content)
 
 
@@ -45,6 +45,10 @@ def read_file(file):
     max_value = df['HourlyDryBulbTemperature'].max()
     print(max_value)
     rows_with_max_value = df[df['HourlyDryBulbTemperature'] == max_value]
+    # #print the list in chunks
+    # chunk_size=10
+    # for i in range(0, len(rows_with_max_value), chunk_size):
+    #     print(rows_with_max_value[i:i+chunk_size])
     print(rows_with_max_value.to_dict('records'))
 
 
