@@ -1,6 +1,7 @@
 import psycopg2
 import os
 
+
 # its common to load a json or csv file onto a Postgres table
 # below code creates connection to a db, creates 3 tables and loads data from 3 .csv files onto corresponding tables.
 # DDL query (creating a table) and a DML query (inserting data into table). both types are saved .sql extensions
@@ -17,23 +18,26 @@ def db_connect():
         password="postgres"
     )
     return connection
+
+
 def run_sql_file(file_path, conn):
     try:
         with open(file_path, 'r') as f:
             queries = f.read().split(';')
             cursor = conn.cursor()
             for query in queries:
-                cursor.execute(query)
-        conn.commit()
-        print("Queries executed successfully!")
+                if query.strip():
+                    cursor.execute(query)
+            conn.commit()
+            print("Queries executed successfully!")
 
     except (Exception, psycopg2.Error) as error:
         print("Error executing query:", error)
 
+
 def ingest_csv_into_table(csv_file, table_name, conn):
     try:
         print(f'ingesting {csv_file} into {table_name} table...')
-
         with open(csv_file, 'r') as csvfile:
             cur = conn.cursor()
             # skip the header row
@@ -47,9 +51,11 @@ def ingest_csv_into_table(csv_file, table_name, conn):
         conn.rollback()
 
 if __name__ == "__main__":
-    sql_file_path = 'queries.sql'
+    sql_file_path1 = 'create_queries.sql'
+    sql_file_path2 = 'alter_queries.sql'
     conn = db_connect()
-    run_sql_file(sql_file_path, conn)
+    run_sql_file(sql_file_path1, conn)
+    run_sql_file(sql_file_path2, conn)
     ingest_csv_into_table('data/accounts.csv', 'accounts', conn)
     ingest_csv_into_table('data/products.csv', 'products', conn)
     ingest_csv_into_table('data/transactions.csv', 'transactions', conn)
