@@ -18,8 +18,9 @@ def main():
 
     df1, df_avg_tripduration = transform1(df1, spark, output_path)
     # df_trip_count_per_day = transform2(df1, spark, output_path)
-    df_pop_trip_station = transform3(df1, spark, output_path)
-    df_pop_trip_station.show(30)
+    df_pop_trip_station= transform3(df1, spark, output_path)
+    df_pop_trip_station.show()
+
 
 
 if __name__ == "__main__":

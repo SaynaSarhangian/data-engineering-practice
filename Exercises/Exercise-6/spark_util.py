@@ -1,6 +1,7 @@
 from zipfile import ZipFile
 from pyspark.sql.functions import *
-from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+from pyspark.sql.functions import row_number
 
 
 def read_zip(zip_path, spark):
@@ -56,10 +57,24 @@ def transform2(df1, spark, output_path):
     return df_trip_count_per_day
 
 
-# the most popular starting trip station for each month:
+# the most popular starting station for each month:window func
 def transform3(df1, spark, output_path):
-    df_pop_trip_station = df1.groupby('from_station_id', 'from_station_name').agg(
+    # extract yyyy-mm from date to group by it.
+    df1 = df1.withColumn('year', year('converted_start_time'))
+    df1 = df1.withColumn('month', month('converted_start_time'))
+
+    df_pop_trip_station = df1.groupby('from_station_id', 'from_station_name', 'year',
+
+                                      'month').agg(
         count('trip_id').alias('count_trip_id')).sort(col('count_trip_id').desc())
-    first_row = df_pop_trip_station.collect()[0]
-    print(f'***********************The most popular station is {first_row[0]} with name {first_row[1]} and the max trips for it is {first_row[2]}!!!!!!!!!!!!!!!!!!!!!!!!!')
+
+    window_agg = Window.partitionBy('year', 'month').orderBy(col('count_trip_id').desc())
+    print(window_agg, type(window_agg))
+    df_pop_trip_station = df_pop_trip_station.withColumn('row_number', row_number().over(window_agg)) \
+        .withColumn('max', max(col('count_trip_id')).over(window_agg)) \
+        .filter(col('row_number') == 1).drop('row_number')
+    df_pop_trip_station.show()
+
+    print(f'num of rows for this df are: {df_pop_trip_station.count()}')  # 1783
+
     return df_pop_trip_station
