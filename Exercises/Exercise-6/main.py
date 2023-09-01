@@ -2,6 +2,8 @@ from pyspark.sql import SparkSession
 import os
 import sys
 from spark_util import read_zip, transform1, transform3
+from pyspark.sql.functions import *
+from pyspark.sql.window import Window
 
 os.environ['PYSPARK_PYTHON'] = sys.executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
@@ -9,7 +11,6 @@ os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 
 def main():
     spark = SparkSession.builder.appName("Exercise6").enableHiveSupport().getOrCreate()
-
     path = 'data'
     # .csv export location
     output_path = "reports"
@@ -18,9 +19,18 @@ def main():
 
     df1, df_avg_tripduration = transform1(df1, spark, output_path)
     # df_trip_count_per_day = transform2(df1, spark, output_path)
-    df_pop_trip_station= transform3(df1, spark, output_path)
-    df_pop_trip_station.show()
+    # df_pop_trip_station = transform3(df1, spark, output_path)
+    # ----------------------------------------------------------------------------------------
+    # 4. What were the top 3 trip stations each day for the last two weeks?
+    df_top3_stations = df1.groupby('from_station_id', 'from_station_name', 'converted_start_time').agg(
+        count('trip_id').alias('count_trip_id')).sort(col('converted_start_time').desc())
+    df_top3_stations.show(50)
 
+    window_top3 = Window.partitionBy('converted_start_time').orderBy(
+        col('count_trip_id').desc())
+    df_top3_stations.withColumn('row_number', row_number().over(window_top3)) \
+        .withColumn('top3max', max(col('count_trip_id')).over(window_top3)) \
+        .filter(col('row_number') <= 3).sort(col('converted_start_time').desc()).show(50)
 
 
 if __name__ == "__main__":

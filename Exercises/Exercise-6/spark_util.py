@@ -57,9 +57,9 @@ def transform2(df1, spark, output_path):
     return df_trip_count_per_day
 
 
-# the most popular starting station for each month:window func
+# 2.the most popular starting station for each month:window func
 def transform3(df1, spark, output_path):
-    # extract yyyy-mm from date to group by it.
+    # extract year and month from date to group by them.
     df1 = df1.withColumn('year', year('converted_start_time'))
     df1 = df1.withColumn('month', month('converted_start_time'))
 
@@ -67,14 +67,15 @@ def transform3(df1, spark, output_path):
 
                                       'month').agg(
         count('trip_id').alias('count_trip_id')).sort(col('count_trip_id').desc())
+    distinct_dates = df_pop_trip_station.select('year', 'month').distinct().collect()
+    print(f'distinct y,m are: {distinct_dates}')
 
+    # to get the max for 'count_trip_id' we need to partition the data
+    # for each year,month, order desc then get the first row of each
     window_agg = Window.partitionBy('year', 'month').orderBy(col('count_trip_id').desc())
-    print(window_agg, type(window_agg))
     df_pop_trip_station = df_pop_trip_station.withColumn('row_number', row_number().over(window_agg)) \
         .withColumn('max', max(col('count_trip_id')).over(window_agg)) \
         .filter(col('row_number') == 1).drop('row_number')
     df_pop_trip_station.show()
-
-    print(f'num of rows for this df are: {df_pop_trip_station.count()}')  # 1783
-
+    # print(f'num of rows for this df are: {df_pop_trip_station.count()}')  # 1783
     return df_pop_trip_station
