@@ -26,6 +26,12 @@ def read_zip(zip_path, spark):
 def transform1(df1, spark, output_path):
     # add a new col converted_start_time with date type from an existing col to df1
     df1 = df1.withColumn("converted_start_time", to_date(col("start_time"), "yyyy-MM-dd HH:mm:ss"))
+    #add age column
+    df1 = df1.withColumn('age', (year(current_date()) - col('birthyear')))
+    #change data type from string to int
+    df1=df1.withColumn('tripduration',
+
+
     # sparkSQL to calculate Question1:What is the average trip duration per day?
     df1.createOrReplaceTempView("df1_table")
     query = '''
@@ -37,6 +43,7 @@ group by \
 order by \
     converted_start_time 
 '''
+    # 1.What is the average trip duration per day?
     df_avg_tripduration = spark.sql(query)
     # export df_avg_tripduration to csv:
     # df_avg_tripduration.coalesce(1).write \
@@ -46,7 +53,7 @@ order by \
     return df1, df_avg_tripduration
 
 
-# How many trips (trip id) were taken per day?
+# 2.How many trips (trip id) were taken per day?
 def transform2(df1, spark, output_path):
     df_trip_count_per_day = df1.groupby('converted_start_time').agg({'trip_id': 'count'}).sort('converted_start_time')
     # export to .csv:
@@ -57,7 +64,7 @@ def transform2(df1, spark, output_path):
     return df_trip_count_per_day
 
 
-# 2.the most popular starting station for each month:window func
+# 3.the most popular starting station for each month:window func
 def transform3(df1, spark, output_path):
     # extract year and month from date to group by them.
     df1 = df1.withColumn('year', year('converted_start_time'))
@@ -67,8 +74,8 @@ def transform3(df1, spark, output_path):
 
                                       'month').agg(
         count('trip_id').alias('count_trip_id')).sort(col('count_trip_id').desc())
-    distinct_dates = df_pop_trip_station.select('year', 'month').distinct().collect()
-    print(f'distinct y,m are: {distinct_dates}')
+    # distinct_dates = df_pop_trip_station.select('year', 'month').distinct().collect()
+    # print(f'distinct y,m are: {distinct_dates}')
 
     # to get the max for 'count_trip_id' we need to partition the data
     # for each year,month, order desc then get the first row of each
@@ -79,3 +86,15 @@ def transform3(df1, spark, output_path):
     df_pop_trip_station.show()
     # print(f'num of rows for this df are: {df_pop_trip_station.count()}')  # 1783
     return df_pop_trip_station
+
+
+# 4. What were the top 3 trip stations each day for the last two weeks?
+def transform4(df1, spark, output_path):
+    df_top3 = df1.groupby('from_station_id', 'from_station_name', 'converted_start_time').agg(
+        count('trip_id').alias('count_trip_id')).sort(col('converted_start_time').desc())
+    window_top3 = Window.partitionBy('converted_start_time').orderBy(
+        col('count_trip_id').desc())
+    df_top3_stations = df_top3.withColumn('row_number', row_number().over(window_top3)) \
+        .withColumn('top3max', max(col('count_trip_id')).over(window_top3)) \
+        .filter(col('row_number') <= 3).sort(col('converted_start_time').desc())
+    return df_top3_stations
