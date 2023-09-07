@@ -26,11 +26,11 @@ def read_zip(zip_path, spark):
 def transform1(df1, spark, output_path):
     # add a new col converted_start_time with date type from an existing col to df1
     df1 = df1.withColumn("converted_start_time", to_date(col("start_time"), "yyyy-MM-dd HH:mm:ss"))
-    #add age column
+    # add age column
     df1 = df1.withColumn('age', (year(current_date()) - col('birthyear')))
-    #change data type from string to int
-    df1=df1.withColumn('tripduration',
-
+    # change data type from string to int
+    df1 = df1.withColumn('tripduration', df1.tripduration.cast('int'))
+    df1 = df1.na.drop(subset=["birthyear", "tripduration"])
 
     # sparkSQL to calculate Question1:What is the average trip duration per day?
     df1.createOrReplaceTempView("df1_table")
@@ -98,3 +98,17 @@ def transform4(df1, spark, output_path):
         .withColumn('top3max', max(col('count_trip_id')).over(window_top3)) \
         .filter(col('row_number') <= 3).sort(col('converted_start_time').desc())
     return df_top3_stations
+
+def transform5(df1, spark, output_path):
+    # 5.Do Males or Females take longer trips on average?
+    df_gender_avgduration = df1.groupby('gender').agg(round(avg('tripduration'), 2).alias('avg_tripduration'))
+    print(f'Do Males or Females take longer trips on average?:')
+    df_gender_avgduration.show()
+    return df_gender_avgduration
+def transform6(df1, spark, output_path):
+    # 6.What is the top 10 ages of those that take the longest trips, and shortest?
+    window_top10_ages = Window.partitionBy('age').orderBy(col('tripduration').desc())
+    df_top10_ages = df1.groupby('age').agg(max('tripduration').alias('max_tripduration')).orderBy(
+        col('max_tripduration').desc())
+    df_top10_ages.show(40)
+    return df_top10_ages
