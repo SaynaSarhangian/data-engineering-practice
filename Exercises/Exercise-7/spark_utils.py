@@ -1,6 +1,7 @@
 from zipfile import ZipFile
-# import pyspark.sql.functions as F
 from pyspark.sql.functions import when, split
+from pyspark.sql.window import Window
+from pyspark.sql.functions import col, dense_rank, desc
 
 
 def read_zip(zip_path, spark):
@@ -17,8 +18,19 @@ def read_zip(zip_path, spark):
     # Q3:Add a new column called brand...
 
 
+# check if a str column contains a particular character, if not return a default value in the new col
 def brand(df, spark):
     df = df.withColumn('brand', when(df.model.contains(' '), (split(df['model'], ' ')).getItem(0))
                        .otherwise('unknown'))
     return df
-# (F.split(df('model'), ' ')).getItem(0))
+
+
+def ranking_joining(df, spark):
+    df_ranking = df.select('capacity_bytes', 'model')
+    # do not partition the data, rank the whole dataset
+    partition = Window.orderBy(desc('capacity_bytes'))
+    df_ranking = df_ranking.withColumn('storage_ranking', dense_rank().over(partition))
+    df_ranking.select('storage_ranking').distinct().show(30)
+    df_ranking_dist = df_ranking.select('model', 'storage_ranking').distinct()
+    joined_df = df_ranking_dist.join(df, on='model', how='left_outer')
+    return joined_df
